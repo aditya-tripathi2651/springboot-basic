@@ -39,7 +39,9 @@ jobs:
           name: springboot-jar
 
       - name: Rename JAR
-        run: mv springboot-jar/*.jar demo-1.0.0.jar
+        run: |
+          JAR_PATH=$(find . -name "*.jar" | head -n 1)
+          mv "$JAR_PATH" demo-1.0.0.jar
 
       - name: Deploy to EC2 via SCP
         env:
