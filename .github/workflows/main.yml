@@ -38,6 +38,9 @@ jobs:
         with:
           name: springboot-jar
 
+      - name: Rename JAR
+        run: mv springboot-jar/*.jar demo-1.0.0.jar
+
       - name: Deploy to EC2 via SCP
         env:
           SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
@@ -46,7 +49,7 @@ jobs:
         run: |
           echo "$SSH_PRIVATE_KEY" > key.pem
           chmod 600 key.pem
-          scp -i key.pem target/*.jar $USER@$HOST:~/demo-1.0.0.jar
+          scp -i key.pem demo-1.0.0.jar $USER@$HOST:~/demo-1.0.0.jar
 
       - name: Run App Remotely
         run: |
