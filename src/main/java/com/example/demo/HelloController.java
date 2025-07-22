@@ -7,6 +7,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class HelloController {
     @GetMapping("/")
     public String greet() {
-        return "Hello from Spring Boot! Current time: " + java.time.LocalDateTime.now();
+        return "Hello from Spring Boot!! Current time: " + java.time.LocalDateTime.now();
     }
 }
