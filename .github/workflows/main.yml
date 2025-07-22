@@ -1,0 +1,65 @@
+name: Build and Deploy Spring Boot App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Build with Maven
+        run: mvn clean package
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: springboot-jar
+          path: target/*.jar
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download JAR artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: springboot-jar
+
+      - name: Rename JAR
+        run: |
+          JAR_PATH=$(find . -name "*.jar" | head -n 1)
+          if [ "$JAR_PATH" != "./demo-1.0.0.jar" ]; then
+            mv "$JAR_PATH" demo-1.0.0.jar
+          fi
+
+      - name: Deploy to EC2 via SCP
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+          HOST: ${{ secrets.EC2_HOST }}
+          USER: ${{ secrets.EC2_USERNAME }}
+        run: |
+          echo "$SSH_PRIVATE_KEY" > key.pem
+          chmod 600 key.pem
+          SSH_OPTIONS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+          scp $SSH_OPTIONS -i key.pem demo-1.0.0.jar $USER@$HOST:~/demo-1.0.0.jar
+
+      - name: Run App Remotely
+        env:
+          HOST: ${{ secrets.EC2_HOST }}
+          USER: ${{ secrets.EC2_USERNAME }}
+        run: |
+          SSH_OPTIONS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+          ssh $SSH_OPTIONS -i key.pem $USER@$HOST "nohup java -jar demo-1.0.0.jar > spring.log 2>&1 &"
