@@ -9,4 +9,8 @@ public class HelloController {
     public String greet() {
         return "Hello from Spring Boot! Current time: " + java.time.LocalDateTime.now();
     }
+    @GetMapping("/Welcome")
+    public String greetwelcome() {
+        return "Hello from Welcome page! Current time: " + java.time.LocalDateTime.now();
+    }
 }
