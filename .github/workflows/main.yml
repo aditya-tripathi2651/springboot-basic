@@ -40,8 +40,11 @@ jobs:
 
       - name: Rename JAR
         run: |
-          JAR_PATH=$(find . -name "*.jar" | head -n 1)
+         JAR_PATH=$(find . -name "*.jar" | head -n 1)
+         if [ "$(basename "$JAR_PATH")" != "demo-1.0.0.jar" ]; then
           mv "$JAR_PATH" demo-1.0.0.jar
+          fi
+
 
       - name: Deploy to EC2 via SCP
         env:
