@@ -22,7 +22,7 @@ jobs:
       - name: Build with Maven
         run: mvn clean package
 
-      - name: Upload artifact
+      - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
           name: springboot-jar
@@ -38,38 +38,43 @@ jobs:
         with:
           name: springboot-jar
 
-      - name: Rename JAR if needed
+      - name: Rename JAR (if needed)
         run: |
           JAR_PATH=$(find . -name "*.jar" | head -n 1)
-          if [ "$(basename "$JAR_PATH")" != "demo-1.0.0.jar" ]; then
-            mv "$JAR_PATH" demo-1.0.0.jar
-          fi
+          echo "Detected JAR: $JAR_PATH"
+          [ "$(basename "$JAR_PATH")" != "demo-1.0.0.jar" ] && mv "$JAR_PATH" demo-1.0.0.jar
 
-      - name: Prepare PEM Key
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+      - name: Validate Secrets
         run: |
-          echo "$SSH_PRIVATE_KEY" > key.pem
+          echo "EC2_SSH_KEY Length: ${#EC2_SSH_KEY}"
+          echo "EC2_HOST: $EC2_HOST"
+          echo "EC2_USERNAME: $EC2_USERNAME"
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+
+      - name: Create PEM Key
+        run: |
+          echo "$EC2_SSH_KEY" > key.pem
           chmod 600 key.pem
-
-      - name: Deploy to EC2 via SCP
         env:
-          HOST: ${{ secrets.EC2_HOST }}
-          USER: ${{ secrets.EC2_USERNAME }}
-        run: |
-          SSH_OPTIONS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-          scp $SSH_OPTIONS -i key.pem demo-1.0.0.jar $USER@$HOST:~/demo-1.0.0.jar
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
 
-      - name: Restart App Remotely
-        env:
-          HOST: ${{ secrets.EC2_HOST }}
-          USER: ${{ secrets.EC2_USERNAME }}
-          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+      - name: Deploy JAR to EC2 via SCP
         run: |
-          echo "$SSH_PRIVATE_KEY" > key.pem
-          chmod 600 key.pem
-          SSH_OPTIONS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-          ssh $SSH_OPTIONS -i key.pem $USER@$HOST "
+          scp -i key.pem -o StrictHostKeyChecking=no demo-1.0.0.jar $EC2_USERNAME@$EC2_HOST:~/demo-1.0.0.jar
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+
+      - name: Restart App on EC2
+        run: |
+          ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_HOST << EOF
             pkill -f demo-1.0.0.jar || true
             nohup java -jar demo-1.0.0.jar > spring.log 2>&1 &
-          "
+          EOF
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+
