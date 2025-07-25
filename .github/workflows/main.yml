@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Set Up Java 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
@@ -22,7 +22,7 @@ jobs:
       - name: Build with Maven
         run: mvn clean package
 
-      - name: Upload JAR artifact
+      - name: Upload JAR Artifact
         uses: actions/upload-artifact@v4
         with:
           name: springboot-jar
@@ -33,48 +33,57 @@ jobs:
     needs: build
 
     steps:
-      - name: Download JAR artifact
+      - name: Download JAR Artifact
         uses: actions/download-artifact@v4
         with:
           name: springboot-jar
 
-      - name: Rename JAR (if needed)
+      - name: Detect and Rename JAR
         run: |
           JAR_PATH=$(find . -name "*.jar" | head -n 1)
           echo "Detected JAR: $JAR_PATH"
-          [ "$(basename "$JAR_PATH")" != "demo-1.0.0.jar" ] && mv "$JAR_PATH" demo-1.0.0.jar
+          BASENAME=$(basename "$JAR_PATH")
+          if [ "$BASENAME" != "demo-1.0.0.jar" ]; then
+            mv "$JAR_PATH" demo-1.0.0.jar
+          else
+            echo "No rename needed."
+          fi
 
-      - name: Validate Secrets
+      - name: Verify Secrets Are Loaded
         run: |
-          echo "EC2_SSH_KEY Length: ${#EC2_SSH_KEY}"
-          echo "EC2_HOST: $EC2_HOST"
-          echo "EC2_USERNAME: $EC2_USERNAME"
+          echo "🔑 SSH key length: ${#EC2_SSH_KEY}"
+          echo "🌍 Host: $EC2_HOST"
+          echo "👤 User: $EC2_USERNAME"
         env:
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
 
-      - name: Create PEM Key
+      - name: Create PEM File
         run: |
           echo "$EC2_SSH_KEY" > key.pem
           chmod 600 key.pem
         env:
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
 
-      - name: Deploy JAR to EC2 via SCP
+      - name: Deploy to EC2 via SCP
         run: |
-          scp -i key.pem -o StrictHostKeyChecking=no demo-1.0.0.jar $EC2_USERNAME@$EC2_HOST:~/demo-1.0.0.jar
+          echo "🚚 Uploading demo-1.0.0.jar to EC2..."
+          scp -i key.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            demo-1.0.0.jar $EC2_USERNAME@$EC2_HOST:~/demo-1.0.0.jar
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
 
-      - name: Restart App on EC2
+      - name: Restart Spring Boot App
         run: |
-          ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_HOST << EOF
-            pkill -f demo-1.0.0.jar || true
+          echo "🔄 Restarting app on EC2..."
+          ssh -i key.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            $EC2_USERNAME@$EC2_HOST << EOF
+            pkill -f demo-1.0.0.jar || echo "App not running, starting fresh."
             nohup java -jar demo-1.0.0.jar > spring.log 2>&1 &
+            echo "✅ App restarted and logging to spring.log"
           EOF
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
-
