@@ -41,9 +41,7 @@ jobs:
       - name: Rename JAR
         run: |
           JAR_PATH=$(find . -name "*.jar" | head -n 1)
-          if [ "$JAR_PATH" != "./demo-1.0.0.jar" ]; then
-            mv "$JAR_PATH" demo-1.0.0.jar
-          fi
+          mv "$JAR_PATH" demo-1.0.0.jar
 
       - name: Deploy to EC2 via SCP
         env:
@@ -56,10 +54,13 @@ jobs:
           SSH_OPTIONS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
           scp $SSH_OPTIONS -i key.pem demo-1.0.0.jar $USER@$HOST:~/demo-1.0.0.jar
 
-      - name: Run App Remotely
+      - name: Restart App Remotely
         env:
           HOST: ${{ secrets.EC2_HOST }}
           USER: ${{ secrets.EC2_USERNAME }}
         run: |
           SSH_OPTIONS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-          ssh $SSH_OPTIONS -i key.pem $USER@$HOST "nohup java -jar demo-1.0.0.jar > spring.log 2>&1 &"
+          ssh $SSH_OPTIONS -i key.pem $USER@$HOST "
+            pkill -f demo-1.0.0.jar || true
+            nohup java -jar demo-1.0.0.jar > spring.log 2>&1 &
+          "
