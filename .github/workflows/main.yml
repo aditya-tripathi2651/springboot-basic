@@ -38,22 +38,25 @@ jobs:
         with:
           name: springboot-jar
 
-      - name: Rename JAR
+      - name: Rename JAR if needed
         run: |
-         JAR_PATH=$(find . -name "*.jar" | head -n 1)
-         if [ "$(basename "$JAR_PATH")" != "demo-1.0.0.jar" ]; then
-          mv "$JAR_PATH" demo-1.0.0.jar
+          JAR_PATH=$(find . -name "*.jar" | head -n 1)
+          if [ "$(basename "$JAR_PATH")" != "demo-1.0.0.jar" ]; then
+            mv "$JAR_PATH" demo-1.0.0.jar
           fi
 
-
-      - name: Deploy to EC2 via SCP
+      - name: Prepare PEM Key
         env:
           SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
-          HOST: ${{ secrets.EC2_HOST }}
-          USER: ${{ secrets.EC2_USERNAME }}
         run: |
           echo "$SSH_PRIVATE_KEY" > key.pem
           chmod 600 key.pem
+
+      - name: Deploy to EC2 via SCP
+        env:
+          HOST: ${{ secrets.EC2_HOST }}
+          USER: ${{ secrets.EC2_USERNAME }}
+        run: |
           SSH_OPTIONS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
           scp $SSH_OPTIONS -i key.pem demo-1.0.0.jar $USER@$HOST:~/demo-1.0.0.jar
 
@@ -61,7 +64,10 @@ jobs:
         env:
           HOST: ${{ secrets.EC2_HOST }}
           USER: ${{ secrets.EC2_USERNAME }}
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
+          echo "$SSH_PRIVATE_KEY" > key.pem
+          chmod 600 key.pem
           SSH_OPTIONS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
           ssh $SSH_OPTIONS -i key.pem $USER@$HOST "
             pkill -f demo-1.0.0.jar || true
