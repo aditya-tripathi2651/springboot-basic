@@ -13,4 +13,8 @@ public class HelloController {
     public String greetwelcome() {
         return "Hello from Welcome page! Current time: " + java.time.LocalDateTime.now();
     }
+     @GetMapping("/Exit")
+    public String Exit() {
+        return "Hello from Exit page! Current time: " + java.time.LocalDateTime.now();
+    }
 }
